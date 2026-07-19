@@ -1,0 +1,89 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs when a new commit is pushed to the same ref —
+# keeps queue depth low on rapid iteration.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Minimal privileges — the workflow only reads code and reports checks.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  lint:
+    name: rustfmt + clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # `rust-toolchain.toml` in the repo pins the exact channel;
+      # `rustup show` reads the file and installs the pinned toolchain.
+      # `rustfmt` and `clippy` are declared as required components in
+      # that same file, so they land alongside the compiler.
+      - name: install toolchain
+        run: rustup show
+
+      - name: cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install toolchain
+        run: rustup show
+
+      - name: cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo test
+        run: cargo test --all-features --workspace
+
+  coverage:
+    name: line coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install toolchain
+        run: rustup show
+
+      - name: install llvm-tools-preview
+        run: rustup component add llvm-tools-preview
+
+      - name: cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      # Coverage report is emitted for visibility; the 90% target from
+      # the portfolio TODO becomes a hard gate once we have a
+      # baseline. For now: measure, print, do not fail.
+      - name: cargo llvm-cov
+        run: cargo llvm-cov --all-features --workspace --summary-only
