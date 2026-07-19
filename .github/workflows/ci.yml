@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Manual trigger — recovers from occasional GitHub-side registration
+  # lag where a post-merge push does not spin up a run automatically.
+  workflow_dispatch:
 
 # Cancel in-progress runs when a new commit is pushed to the same ref —
 # keeps queue depth low on rapid iteration.
