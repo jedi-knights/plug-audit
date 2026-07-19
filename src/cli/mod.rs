@@ -17,6 +17,7 @@ use clap::{Parser, Subcommand};
 
 pub mod check;
 pub mod report;
+pub mod report_json;
 
 #[derive(Parser, Debug)]
 #[command(
