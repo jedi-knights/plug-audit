@@ -1,6 +1,6 @@
-name: badge
+name: Badge
 
-# Triggered after the ci workflow completes on main. Running in a
+# Triggered after the CI workflow completes on main. Running in a
 # separate workflow (not a job inside ci.yml) mirrors the jedi-knights
 # suite convention and avoids a push race — if the badge push shared a
 # CI run with any other main-branch commit workflow, the two `git push`
@@ -10,7 +10,7 @@ name: badge
 
 on:
   workflow_run:
-    workflows: [ci]
+    workflows: [CI]
     types: [completed]
     branches: [main]
   workflow_dispatch:

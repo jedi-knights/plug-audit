@@ -1,14 +1,14 @@
-name: release-plz
+name: Release
 
-# Triggered after the ci workflow completes on main, mirroring the
+# Triggered after the CI workflow completes on main, mirroring the
 # neospec release.yml trigger topology. This gates the release-PR
 # open against a successful build — no point opening a version-bump PR
-# if the code that would ship it fails ci. Also allows manual
+# if the code that would ship it fails CI. Also allows manual
 # invocation for out-of-band re-runs.
 
 on:
   workflow_run:
-    workflows: [ci]
+    workflows: [CI]
     types: [completed]
     branches: [main]
   workflow_dispatch:
