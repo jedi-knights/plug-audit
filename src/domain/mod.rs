@@ -7,11 +7,13 @@
 //! [`crate::adapters`].
 
 pub mod categories;
+pub mod config;
 pub mod finding;
 pub mod rule;
 pub mod rule_engine;
 pub mod severity;
 
+pub use config::{Config, ConfigError};
 pub use finding::{ByteSpan, Finding, Location};
 pub use rule::{FixGuidance, Rule, RuleId, RuleIdError};
 pub use rule_engine::{
