@@ -13,11 +13,18 @@
 publish = false
 
 # Skip API-diff checks against crates.io. Without this, release-plz
-# emits `WARN Package plug-audit@*.*.* not found` and refuses to
-# compute a version bump because it cannot resolve a baseline. With
-# semver_check off, release-plz falls back to conventional-commits
-# analysis and git tags for the version cascade — the mode we want.
+# emits `WARN Package plug-audit@*.*.* not found` because plug-audit
+# is not published to crates.io during the v0.1.x preview.
 semver_check = false
+
+# Force release-plz to open a release PR whenever ANY commit lands on
+# main since the last tag, regardless of whether the packaged-file
+# diff considers the change "significant." Without this, release-plz's
+# default heuristic (comparing the current tree against the last tag's
+# packaged files) can conclude "no change" even when a genuine
+# `fix:` commit has landed — observed after PR #31 merged, where
+# release-plz said "next version is 0.1.0" despite a real fix commit.
+release_always = true
 
 # Create a git tag on release so cargo-dist (added separately) can pick
 # it up and attach cross-platform binaries.
