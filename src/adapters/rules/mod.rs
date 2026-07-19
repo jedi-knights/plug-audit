@@ -7,6 +7,7 @@
 //!
 //! [engine]: crate::domain::rule_engine::RuleEngine
 
+pub mod deps;
 pub mod nvim;
 
 use crate::domain::LintRule;
@@ -14,7 +15,7 @@ use crate::domain::LintRule;
 /// Every rule the tool ships with. Registration order is stable —
 /// downstream tooling that snapshots rule output relies on it.
 pub fn built_in_rules() -> Vec<Box<dyn LintRule>> {
-    vec![Box::new(nvim::AugroupClear)]
+    vec![Box::new(nvim::AugroupClear), Box::new(deps::OptionalPeer)]
 }
 
 #[cfg(test)]

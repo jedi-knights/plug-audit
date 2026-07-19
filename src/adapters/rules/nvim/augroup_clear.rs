@@ -201,6 +201,7 @@ mod tests {
             source,
             role: &role,
             relative_path: relative,
+            primary_module: None,
         };
         AugroupClear.check(&ctx)
     }

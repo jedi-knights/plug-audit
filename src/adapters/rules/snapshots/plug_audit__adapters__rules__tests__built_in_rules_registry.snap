@@ -3,5 +3,6 @@ source: src/adapters/rules/mod.rs
 expression: ids
 ---
 [
-  "nvim/augroup-clear"
+  "nvim/augroup-clear",
+  "deps/optional-peer"
 ]
