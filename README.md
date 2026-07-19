@@ -48,13 +48,54 @@ The tool is a single binary. No Lua runtime, no Neovim install, no vendored depe
 
 ## Install
 
-### From source
+### Homebrew (macOS and Linux)
 
 ```bash
-cargo install --git https://github.com/jedi-knights/plug-audit
+brew install jedi-knights/tap/plug-audit
 ```
 
-Pre-built binaries and a Homebrew tap (`jedi-knights/tap/plug-audit`) are planned for the v0.1.0 tag.
+The tap is auto-updated by [cargo-dist](https://github.com/axodotdev/cargo-dist) on every release, so `brew upgrade plug-audit` always picks up the latest version.
+
+### Pre-built binaries
+
+Download the archive for your platform from the [Releases page](https://github.com/jedi-knights/plug-audit/releases/latest), extract, and drop `plug-audit` on your `PATH`. Supported targets:
+
+- `plug-audit-x86_64-unknown-linux-gnu.tar.xz`
+- `plug-audit-aarch64-unknown-linux-gnu.tar.xz`
+- `plug-audit-x86_64-apple-darwin.tar.xz`
+- `plug-audit-aarch64-apple-darwin.tar.xz`
+- `plug-audit-x86_64-pc-windows-msvc.zip`
+
+Each archive ships with a matching `.sha256` sidecar; verify before installing on untrusted networks.
+
+### Shell installer (macOS and Linux)
+
+```bash
+curl -LsSf https://github.com/jedi-knights/plug-audit/releases/latest/download/plug-audit-installer.sh | sh
+```
+
+### PowerShell installer (Windows)
+
+```powershell
+irm https://github.com/jedi-knights/plug-audit/releases/latest/download/plug-audit-installer.ps1 | iex
+```
+
+### Cargo (from source)
+
+Requires the Rust toolchain — install via [rustup](https://rustup.rs/) if you do not already have `cargo` on your `PATH`. The build is pinned at Rust 1.95 via `rust-toolchain.toml`, but any recent stable should work. The binary lands at `$CARGO_HOME/bin/plug-audit` (usually `~/.cargo/bin/plug-audit`).
+
+```bash
+# Latest tip of main
+cargo install --git https://github.com/jedi-knights/plug-audit
+
+# Pin to a specific release tag
+cargo install --git https://github.com/jedi-knights/plug-audit --tag v0.1.0
+
+# Or rebuild against a specific branch
+cargo install --git https://github.com/jedi-knights/plug-audit --branch main --force
+```
+
+`plug-audit` is **not published to crates.io yet** — the v0.1.0-preview API surface (rule IDs, JSON envelope shape) is only stable within v0.1.x and may evolve. `cargo install plug-audit` from crates.io will start working once we tag v1.0.0 or drop the preview designation.
 
 ## Quick start
 
