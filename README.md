@@ -6,6 +6,7 @@
 
 [![CI](https://github.com/jedi-knights/plug-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/jedi-knights/plug-audit/actions/workflows/ci.yml)
 [![Release](https://github.com/jedi-knights/plug-audit/actions/workflows/release.yml/badge.svg)](https://github.com/jedi-knights/plug-audit/actions/workflows/release.yml)
+[![Dist](https://github.com/jedi-knights/plug-audit/actions/workflows/dist.yml/badge.svg)](https://github.com/jedi-knights/plug-audit/actions/workflows/dist.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Badge](https://github.com/jedi-knights/plug-audit/actions/workflows/badge.yml/badge.svg)](https://github.com/jedi-knights/plug-audit/actions/workflows/badge.yml)
 ![Coverage](https://img.shields.io/badge/Coverage-95.3%25-brightgreen)
