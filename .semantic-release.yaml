@@ -1,0 +1,51 @@
+# go-semantic-release configuration for plug-audit (migrated from release-plz).
+#
+# Phase 1 of the two-phase release pipeline:
+#   1. Analyze conventional commits → determine the next semantic version
+#   2. Write CHANGELOG.md, VERSION, and bump the crate version in Cargo.toml + Cargo.lock
+#   3. Commit those back to main with [skip ci]
+#   4. Push the git tag (e.g. v0.2.0)
+#
+# Phase 2 (cross-platform binary builds + GitHub Release) is handled by cargo-dist
+# (dist.yml), triggered automatically by the v* tag pushed here — so create_release
+# is left false and semantic-release only creates the tag.
+
+release_mode: repo
+tag_format: "v{{.Version}}"
+
+branches:
+  - name: main
+    is_default: true
+  - name: beta
+    prerelease: true
+    channel: beta
+  - name: alpha
+    prerelease: true
+    channel: alpha
+
+prepare:
+  changelog_file: CHANGELOG.md
+  version_file: VERSION
+
+# Cargo awareness (go-semantic-release >= v0.11.0) auto-detects the crate and bumps
+# [package] version in Cargo.toml plus its Cargo.lock entry — no Rust toolchain
+# required. git.assets commits those (with CHANGELOG.md/VERSION) with [skip ci]
+# before the tag, so the tag points at the release commit.
+git:
+  assets:
+    - CHANGELOG.md
+    - VERSION
+    - Cargo.toml
+    - Cargo.lock
+  message: "chore(release): {{.Version}} [skip ci]\n\n{{.Notes}}"
+
+# cargo-dist (dist.yml) owns GitHub Release creation and binary assets;
+# semantic-release only creates the tag.
+github:
+  create_release: false
+  owner: jedi-knights
+  repo: plug-audit
+
+git_author:
+  name: semantic-release-bot
+  email: semantic-release-bot@users.noreply.github.com
