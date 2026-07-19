@@ -46,6 +46,14 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
+    # Job-level permissions replace (not merge with) the workflow-level
+    # set, so `contents: read` is re-declared alongside the writes that
+    # `jedi-knights/publish-test-results` needs to post a check and
+    # annotate the PR.
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v5
 
@@ -55,8 +63,28 @@ jobs:
       - name: cache
         uses: Swatinem/rust-cache@v2
 
-      - name: cargo test
-        run: cargo test --all-features --workspace
+      # `cargo-nextest` is a parallel replacement for `cargo test` that
+      # writes JUnit XML natively (see .config/nextest.toml). Doctests
+      # are not covered by nextest and are handled by a follow-up step.
+      - name: install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: cargo nextest run
+        run: cargo nextest run --all-features --workspace --profile ci
+
+      - name: cargo test --doc
+        run: cargo test --doc --all-features --workspace
+
+      # Always run so a failing test still gets a published report with
+      # per-case annotations in the Checks tab.
+      - name: publish test results
+        if: always()
+        uses: jedi-knights/publish-test-results@v1
+        with:
+          files: target/nextest/ci/junit.xml
+          check-name: cargo tests
 
   coverage:
     name: line coverage

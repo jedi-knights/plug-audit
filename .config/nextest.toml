@@ -1,0 +1,17 @@
+# nextest configuration.
+#
+# The `ci` profile is invoked from .github/workflows/ci.yml. It writes a
+# JUnit XML report at target/nextest/ci/junit.xml so
+# jedi-knights/publish-test-results can annotate PRs with per-test
+# results and surface failures in the Checks tab.
+
+[profile.ci]
+# Do not retry — a failing test is a real failure, not a flake to hide.
+retries = 0
+
+# Fail the run only after every test has been attempted so the JUnit
+# report is complete when the publish step runs it.
+fail-fast = false
+
+[profile.ci.junit]
+path = "junit.xml"
