@@ -81,7 +81,7 @@ jobs:
       # per-case annotations in the Checks tab.
       - name: publish test results
         if: always()
-        uses: jedi-knights/publish-test-results@v1
+        uses: jedi-knights/publish-test-results@v0
         with:
           files: target/nextest/ci/junit.xml
           check-name: cargo tests
