@@ -1,0 +1,39 @@
+---
+source: src/adapters/repo/discovery.rs
+expression: stable
+---
+[
+  [
+    "lua/go/config.lua",
+    {
+      "type": "lua",
+      "module": "go"
+    }
+  ],
+  [
+    "lua/go/init.lua",
+    {
+      "type": "lua-init",
+      "module": "go"
+    }
+  ],
+  [
+    "lua/pytest/parser.lua",
+    {
+      "type": "lua",
+      "module": "pytest"
+    }
+  ],
+  [
+    "plugin/go-task.lua",
+    {
+      "type": "plugin"
+    }
+  ],
+  [
+    "tests/helpers.lua",
+    {
+      "type": "test"
+    }
+  ]
+]
