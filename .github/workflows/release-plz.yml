@@ -1,0 +1,50 @@
+name: release-plz
+
+on:
+  push:
+    branches: [main]
+
+# Never cancel a release mid-flight — a partial run can leave the
+# release PR or tag in an inconsistent state that requires manual
+# cleanup.
+concurrency:
+  group: release-plz
+  cancel-in-progress: false
+
+# release-plz opens/updates a PR and (later) creates tags + GitHub
+# Releases; both writes need explicit permission at the job level
+# because the workflow-level default is read-only.
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-plz:
+    name: release-plz
+    runs-on: ubuntu-latest
+    steps:
+      # `fetch-depth: 0` so release-plz sees full commit history when
+      # computing the next semver bump from Conventional Commits.
+      # `token:` on checkout so the subsequent push (release-plz commits
+      # the version bump and CHANGELOG.md update) authenticates with a
+      # write-capable token, not the default read-only checkout token.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: install toolchain
+        run: rustup show
+
+      - name: cache
+        uses: Swatinem/rust-cache@v2
+
+      # By default the action runs both `release-pr` and `release`.
+      # `release-pr` opens/updates the rolling release PR that bumps
+      # Cargo.toml + updates CHANGELOG.md. `release` creates a git tag
+      # + GitHub Release when a bump commit is present on main. Neither
+      # publishes to crates.io — `publish = false` in release-plz.toml.
+      - name: release-plz
+        uses: release-plz/action@v0.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
