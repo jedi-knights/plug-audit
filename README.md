@@ -1,7 +1,7 @@
 # plug-audit
 
 [![ci](https://github.com/jedi-knights/plug-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/jedi-knights/plug-audit/actions/workflows/ci.yml)
-![Coverage](https://img.shields.io/badge/Coverage-0%25-lightgrey)
+![Coverage](https://img.shields.io/badge/Coverage-95.3%25-brightgreen)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![rust: 1.95](https://img.shields.io/badge/rust-1.95-orange.svg)](rust-toolchain.toml)
 
