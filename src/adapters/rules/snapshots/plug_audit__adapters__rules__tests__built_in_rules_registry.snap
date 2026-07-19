@@ -1,0 +1,7 @@
+---
+source: src/adapters/rules/mod.rs
+expression: ids
+---
+[
+  "nvim/augroup-clear"
+]
