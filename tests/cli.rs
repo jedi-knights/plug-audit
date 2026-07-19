@@ -120,3 +120,89 @@ fn json_format_empty_repo_still_valid() {
     assert_eq!(value["summary"]["total"], 0);
     assert_eq!(value["findings"].as_array().unwrap().len(), 0);
 }
+
+#[test]
+fn config_disables_rule_category() {
+    let tmp = tempfile::tempdir().expect("mktemp");
+    let cfg = tmp.path().join("plug-audit.toml");
+    std::fs::write(&cfg, "[categories]\ndeps = false\n").unwrap();
+
+    // With deps disabled, only nvim/health-check fires on sample-repo.
+    let output = bin()
+        .arg("check")
+        .arg(fixture_path("tests/fixtures/sample-repo"))
+        .arg("--config")
+        .arg(&cfg)
+        .arg("--format=json")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8(output).expect("utf8");
+    let value: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    assert_eq!(value["summary"]["must_fix"], 1);
+    assert_eq!(value["summary"]["should_fix"], 0);
+    // No deps/* findings.
+    for f in value["findings"].as_array().unwrap() {
+        let rule = f["rule"].as_str().unwrap();
+        assert!(
+            !rule.starts_with("deps/"),
+            "unexpected deps rule after category disable: {rule}"
+        );
+    }
+}
+
+#[test]
+fn config_severity_override_bumps_finding_severity() {
+    let tmp = tempfile::tempdir().expect("mktemp");
+    let cfg = tmp.path().join("plug-audit.toml");
+    std::fs::write(&cfg, "[severity]\n\"deps/optional-peer\" = \"must-fix\"\n").unwrap();
+
+    // Under override, --strict should trip because deps/optional-peer
+    // findings on sample-repo now count as Must Fix.
+    bin()
+        .arg("check")
+        .arg(fixture_path("tests/fixtures/sample-repo"))
+        .arg("--config")
+        .arg(&cfg)
+        .arg("--strict")
+        .assert()
+        .code(2);
+}
+
+#[test]
+fn config_typo_fails_with_helpful_error() {
+    let tmp = tempfile::tempdir().expect("mktemp");
+    let cfg = tmp.path().join("plug-audit.toml");
+    std::fs::write(&cfg, "[rules]\n\"nvim/does-not-exist\" = false\n").unwrap();
+
+    bin()
+        .arg("check")
+        .arg(fixture_path("tests/fixtures/sample-repo"))
+        .arg("--config")
+        .arg(&cfg)
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("nvim/does-not-exist"));
+}
+
+#[test]
+fn explicit_config_missing_file_is_tool_error() {
+    bin()
+        .arg("check")
+        .arg(fixture_path("tests/fixtures/sample-repo"))
+        .arg("--config")
+        .arg("/tmp/plug-audit-does-not-exist.toml")
+        .assert()
+        .code(1);
+}
+
+#[test]
+fn autodiscovered_config_at_scan_root_is_used() {
+    let tmp = tempfile::tempdir().expect("mktemp");
+    // Empty scan dir + a config file at its root that disables no
+    // rules — the auto-discovery path must at least parse and validate.
+    std::fs::write(tmp.path().join(".plug-audit.toml"), "").unwrap();
+    bin().arg("check").arg(tmp.path()).assert().success();
+}

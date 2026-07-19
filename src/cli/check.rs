@@ -25,7 +25,7 @@ use crate::adapters::parser::LuaParser;
 use crate::adapters::repo::{LuaFile, discover};
 use crate::adapters::rules::built_in_rules;
 use crate::domain::rule_engine::{LintContext, RepoContext, RuleEngine};
-use crate::domain::{Finding, Severity};
+use crate::domain::{Config, Finding, LintRule, Severity};
 
 use super::{report, report_json};
 
@@ -51,6 +51,13 @@ pub struct CheckArgs {
     #[arg(long, value_enum, default_value_t = Format::Console)]
     pub format: Format,
 
+    /// Path to a TOML config file. Missing: auto-discover
+    /// `<path>/.plug-audit.toml`, or run with defaults. Explicit path
+    /// that does not exist is a tool error (exit 1) so config typos
+    /// fail loud.
+    #[arg(long, value_name = "PATH")]
+    pub config: Option<PathBuf>,
+
     /// Exit with code 2 if any Must Fix finding is present. Reserve
     /// for CI — during local iteration, plain exit 0 lets you rerun
     /// without a shell trap.
@@ -59,6 +66,25 @@ pub struct CheckArgs {
 }
 
 pub fn run(args: &CheckArgs) -> ExitCode {
+    let all_rules = built_in_rules();
+    let known_ids: Vec<&str> = all_rules.iter().map(|r| r.id().as_str()).collect();
+
+    let config = match load_config(args, &known_ids) {
+        Ok(c) => c,
+        Err(err) => {
+            eprintln!("plug-audit: {err}");
+            for cause in err.chain().skip(1) {
+                eprintln!("  caused by: {cause}");
+            }
+            return ExitCode::from(1);
+        }
+    };
+
+    let filtered_rules: Vec<Box<dyn LintRule>> = all_rules
+        .into_iter()
+        .filter(|r| config.is_rule_enabled(r.id()))
+        .collect();
+
     let files = match discover(&args.path) {
         Ok(f) => f,
         Err(err) => {
@@ -67,7 +93,7 @@ pub fn run(args: &CheckArgs) -> ExitCode {
         }
     };
 
-    let engine = RuleEngine::new(built_in_rules());
+    let engine = RuleEngine::new(filtered_rules);
 
     let repo_ctx = RepoContext {
         root: &args.path,
@@ -98,6 +124,8 @@ pub fn run(args: &CheckArgs) -> ExitCode {
     }
 
     findings.extend(engine.check_repo(&repo_ctx));
+
+    config.apply_severity_overrides(&mut findings);
 
     findings.sort_by(|a, b| {
         a.severity
@@ -138,4 +166,54 @@ fn check_one_file(
         primary_module,
     };
     Ok(engine.check(&ctx))
+}
+
+/// Load and validate the config for this run.
+///
+/// - Explicit `--config <path>`: must exist. Missing file is a tool error.
+/// - No flag: auto-discover `<scan-path>/.plug-audit.toml`. Missing is
+///   silent — the tool runs with defaults.
+///
+/// Validation runs against `known_rule_ids` so a typo in a rule or
+/// category name fails fast with an actionable message.
+fn load_config(args: &CheckArgs, known_rule_ids: &[&str]) -> anyhow::Result<Config> {
+    use anyhow::Context;
+
+    let (source, origin): (Option<String>, Option<PathBuf>) = match &args.config {
+        Some(path) => {
+            let raw = std::fs::read_to_string(path)
+                .with_context(|| format!("failed to read --config file `{}`", path.display()))?;
+            (Some(raw), Some(path.clone()))
+        }
+        None => {
+            let auto = args.path.join(".plug-audit.toml");
+            if auto.exists() {
+                let raw = std::fs::read_to_string(&auto).with_context(|| {
+                    format!("failed to read auto-discovered config `{}`", auto.display())
+                })?;
+                (Some(raw), Some(auto))
+            } else {
+                (None, None)
+            }
+        }
+    };
+
+    let config = match source {
+        Some(text) => Config::from_toml(&text).with_context(|| {
+            format!(
+                "failed to parse config `{}`",
+                origin.as_ref().unwrap().display()
+            )
+        })?,
+        None => Config::default(),
+    };
+
+    config.validate(known_rule_ids).with_context(|| {
+        origin
+            .as_ref()
+            .map(|p| format!("config validation failed for `{}`", p.display()))
+            .unwrap_or_else(|| "config validation failed".to_string())
+    })?;
+
+    Ok(config)
 }
