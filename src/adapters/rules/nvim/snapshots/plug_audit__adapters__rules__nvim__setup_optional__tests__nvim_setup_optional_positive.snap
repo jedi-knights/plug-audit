@@ -1,0 +1,30 @@
+---
+source: src/adapters/rules/nvim/setup_optional.rs
+expression: stable
+---
+[
+  {
+    "line": 7,
+    "message": "`require(\"myplugin\").config` accessed in `plugin/` — command surface must not depend on `setup()` having run",
+    "rule": "nvim/setup-optional",
+    "severity": "must-fix"
+  },
+  {
+    "line": 10,
+    "message": "`require(\"myplugin\").config` accessed in `plugin/` — command surface must not depend on `setup()` having run",
+    "rule": "nvim/setup-optional",
+    "severity": "must-fix"
+  },
+  {
+    "line": 18,
+    "message": "`require(\"myplugin\").config` accessed in `plugin/` — command surface must not depend on `setup()` having run",
+    "rule": "nvim/setup-optional",
+    "severity": "must-fix"
+  },
+  {
+    "line": 24,
+    "message": "`require(\"myplugin\").config` accessed in `plugin/` — command surface must not depend on `setup()` having run",
+    "rule": "nvim/setup-optional",
+    "severity": "must-fix"
+  }
+]

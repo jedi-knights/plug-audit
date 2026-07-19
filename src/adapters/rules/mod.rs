@@ -19,6 +19,7 @@ pub fn built_in_rules() -> Vec<Box<dyn LintRule>> {
         Box::new(nvim::AugroupClear),
         Box::new(nvim::HealthCheck),
         Box::new(nvim::PlugMapping),
+        Box::new(nvim::SetupOptional),
         Box::new(deps::OptionalPeer),
     ]
 }
