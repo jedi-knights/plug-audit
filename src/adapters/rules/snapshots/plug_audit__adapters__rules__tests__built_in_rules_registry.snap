@@ -4,5 +4,6 @@ expression: ids
 ---
 [
   "nvim/augroup-clear",
+  "nvim/health-check",
   "deps/optional-peer"
 ]

@@ -1,0 +1,10 @@
+---
+source: src/adapters/rules/nvim/health_check.rs
+expression: stable
+---
+{
+  "anchor": "lua/foo/init.lua",
+  "message": "plugin repo `foo` is missing `lua/foo/health.lua`",
+  "rule": "nvim/health-check",
+  "severity": "must-fix"
+}

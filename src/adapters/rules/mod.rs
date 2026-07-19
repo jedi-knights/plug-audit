@@ -15,7 +15,11 @@ use crate::domain::LintRule;
 /// Every rule the tool ships with. Registration order is stable —
 /// downstream tooling that snapshots rule output relies on it.
 pub fn built_in_rules() -> Vec<Box<dyn LintRule>> {
-    vec![Box::new(nvim::AugroupClear), Box::new(deps::OptionalPeer)]
+    vec![
+        Box::new(nvim::AugroupClear),
+        Box::new(nvim::HealthCheck),
+        Box::new(deps::OptionalPeer),
+    ]
 }
 
 #[cfg(test)]
