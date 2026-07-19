@@ -21,11 +21,11 @@ use std::process::ExitCode;
 
 use clap::{Args, ValueEnum};
 
-use crate::adapters::parser::LuaParser;
+use crate::adapters::parser::{LuaParser, ParsedTree, all_nodes};
 use crate::adapters::repo::{LuaFile, discover};
 use crate::adapters::rules::built_in_rules;
 use crate::domain::rule_engine::{LintContext, RepoContext, RuleEngine};
-use crate::domain::{Config, Finding, LintRule, Severity};
+use crate::domain::{Config, Finding, LintRule, Severity, Suppressions};
 
 use super::{report, report_json};
 
@@ -165,7 +165,29 @@ fn check_one_file(
         relative_path: &file.relative_path,
         primary_module,
     };
-    Ok(engine.check(&ctx))
+    let mut findings = engine.check(&ctx);
+    let suppressions = collect_suppressions(&tree, &source);
+    findings.retain(|f| !suppressions.is_suppressed(f));
+    Ok(findings)
+}
+
+/// Walk every comment node in the parsed tree and populate a
+/// [`Suppressions`] table. Malformed directives (no reason, unknown
+/// keyword, long-form comments) are silently skipped — the rule
+/// fires as if the comment were absent, per `rules/lint-suppression.md`.
+fn collect_suppressions(tree: &ParsedTree, source: &str) -> Suppressions {
+    let mut s = Suppressions::default();
+    for node in all_nodes(tree.tree()) {
+        if node.kind() != "comment" {
+            continue;
+        }
+        let text = &source[node.start_byte()..node.end_byte()];
+        let comment_line = (node.start_position().row + 1) as u32;
+        if let Some((target, rule)) = Suppressions::parse_directive(text, comment_line) {
+            s.insert(target, rule);
+        }
+    }
+    s
 }
 
 /// Load and validate the config for this run.

@@ -206,3 +206,102 @@ fn autodiscovered_config_at_scan_root_is_used() {
     std::fs::write(tmp.path().join(".plug-audit.toml"), "").unwrap();
     bin().arg("check").arg(tmp.path()).assert().success();
 }
+
+/// Set up a minimal in-tree plugin repo layout inside `dir` and write
+/// the given source into `plugin/foo.lua`. Returns the repo root path.
+fn write_plugin_repo(dir: &Path, plugin_source: &str) {
+    std::fs::create_dir_all(dir.join("plugin")).unwrap();
+    std::fs::create_dir_all(dir.join("lua/foo")).unwrap();
+    std::fs::write(dir.join("plugin/foo.lua"), plugin_source).unwrap();
+    std::fs::write(dir.join("lua/foo/init.lua"), "return {}\n").unwrap();
+    // Ship a health module so nvim/health-check does not fire and
+    // complicate the assertion.
+    std::fs::write(
+        dir.join("lua/foo/health.lua"),
+        "return { check = function() end }\n",
+    )
+    .unwrap();
+}
+
+#[test]
+fn inline_suppression_with_reason_hides_finding() {
+    let tmp = tempfile::tempdir().expect("mktemp");
+    write_plugin_repo(
+        tmp.path(),
+        r#"
+vim.api.nvim_create_augroup("Fires", {})
+vim.api.nvim_create_augroup("Suppressed", {})  -- plug-audit: disable-line nvim/augroup-clear — group is created upstream, appending intentional
+"#,
+    );
+
+    let output = bin()
+        .arg("check")
+        .arg(tmp.path())
+        .arg("--format=json")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8(output).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+    // Only the un-suppressed augroup call fires.
+    assert_eq!(v["summary"]["should_fix"], 1);
+    let f = &v["findings"][0];
+    assert_eq!(f["rule"], "nvim/augroup-clear");
+    assert_eq!(f["location"]["line"], 2);
+}
+
+#[test]
+fn disable_next_line_suppresses_line_below() {
+    let tmp = tempfile::tempdir().expect("mktemp");
+    write_plugin_repo(
+        tmp.path(),
+        r#"
+-- plug-audit: disable-next-line nvim/augroup-clear — README documents deliberate append behavior
+vim.api.nvim_create_augroup("SuppressedByNext", {})
+"#,
+    );
+
+    let output = bin()
+        .arg("check")
+        .arg(tmp.path())
+        .arg("--format=json")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_str(&String::from_utf8(output).unwrap()).unwrap();
+    assert_eq!(
+        v["summary"]["total"], 0,
+        "disable-next-line should have hidden the finding"
+    );
+}
+
+#[test]
+fn suppression_without_reason_is_ignored() {
+    let tmp = tempfile::tempdir().expect("mktemp");
+    write_plugin_repo(
+        tmp.path(),
+        r#"
+vim.api.nvim_create_augroup("BareBad", {})  -- plug-audit: disable-line nvim/augroup-clear
+"#,
+    );
+
+    let output = bin()
+        .arg("check")
+        .arg(tmp.path())
+        .arg("--format=json")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_str(&String::from_utf8(output).unwrap()).unwrap();
+    assert_eq!(
+        v["summary"]["should_fix"], 1,
+        "reasonless suppression must not hide the finding — see rules/lint-suppression.md"
+    );
+}
