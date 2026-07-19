@@ -9,7 +9,7 @@
 [![Dist](https://github.com/jedi-knights/plug-audit/actions/workflows/dist.yml/badge.svg)](https://github.com/jedi-knights/plug-audit/actions/workflows/dist.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Badge](https://github.com/jedi-knights/plug-audit/actions/workflows/badge.yml/badge.svg)](https://github.com/jedi-knights/plug-audit/actions/workflows/badge.yml)
-![Coverage](https://img.shields.io/badge/Coverage-95.3%25-brightgreen)
+![Coverage](https://img.shields.io/badge/Coverage-95.4%25-brightgreen)
 
 [Install](#install) · [Quick start](#quick-start) · [Rules](#rules) · [Configuration](#configuration) · [Suppressions](#suppressions) · [CLI reference](#cli-reference) · [Contributing](#contributing)
 
