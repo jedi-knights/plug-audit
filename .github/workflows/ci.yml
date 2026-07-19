@@ -130,12 +130,16 @@ jobs:
     permissions:
       contents: write
     steps:
-      # `token:` is required so the subsequent `git push` uses a token
-      # tied to the workflow's write permission, not the default
-      # read-only checkout token.
+      # Explicit `GH_TOKEN` (repository PAT with `contents: write`) is
+      # required because the default `GITHUB_TOKEN` cannot bypass the
+      # "changes must be made through a PR" ruleset on `main` — a push
+      # attempt with GITHUB_TOKEN returns GH013. Mirrors the
+      # jedi-knights/neospec badge workflow. Create the secret at
+      # Settings → Secrets and variables → Actions before this job
+      # can push.
       - uses: actions/checkout@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: install toolchain
         run: rustup show
