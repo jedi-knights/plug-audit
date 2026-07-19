@@ -109,8 +109,8 @@ jobs:
         with:
           tool: cargo-llvm-cov
 
-      # Coverage report is emitted for visibility; the 90% target from
-      # the portfolio TODO becomes a hard gate once we have a
-      # baseline. For now: measure, print, do not fail.
+      # Hard gate at 90% line coverage — the current baseline is
+      # 95.3%. Below-threshold drops fail the job; increase the target
+      # rather than lower it if the baseline improves.
       - name: cargo llvm-cov
-        run: cargo llvm-cov --all-features --workspace --summary-only
+        run: cargo llvm-cov --all-features --workspace --summary-only --fail-under-lines 90
