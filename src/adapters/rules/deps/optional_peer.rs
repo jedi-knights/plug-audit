@@ -157,12 +157,30 @@ fn is_exempt(target: &str, ctx: &LintContext<'_>) -> bool {
     if target == "plenary" || target.starts_with("plenary.") {
         return true;
     }
+    // Exempt if the target matches this file's own module scope
+    // (e.g. `require("foo.util")` from anywhere inside `lua/foo/`).
     if let Some(module) = self_module(ctx)
-        && (target == module || target.starts_with(&format!("{module}.")))
+        && matches_module(target, module)
+    {
+        return true;
+    }
+    // Also exempt if the target matches the repo's primary module.
+    // Handles distro-shaped repos where non-primary lua/ subdirs
+    // require the primary module cross-tree, e.g. a
+    // `require("yoda.foo")` from `lua/plugins/mason.lua` in
+    // yoda.nvim — the file classifies as `Lua { module: "plugins" }`
+    // so self_module returns "plugins", but the require is still
+    // first-party and must be exempted.
+    if let Some(module) = ctx.primary_module
+        && matches_module(target, module)
     {
         return true;
     }
     false
+}
+
+fn matches_module(target: &str, module: &str) -> bool {
+    target == module || target.starts_with(&format!("{module}."))
 }
 
 fn self_module<'a>(ctx: &'a LintContext<'_>) -> Option<&'a str> {

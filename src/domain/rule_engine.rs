@@ -109,6 +109,17 @@ impl<'a> LintContext<'a> {
     }
 }
 
+/// Helper: extract the module name from a role, or `None` when the
+/// role does not carry one (Plugin / After / Test / Other).
+fn module_of_role(role: &LuaFileRole) -> Option<&str> {
+    match role {
+        LuaFileRole::LuaInit { module }
+        | LuaFileRole::LuaHealth { module }
+        | LuaFileRole::Lua { module } => Some(module.as_str()),
+        _ => None,
+    }
+}
+
 /// Whole-repo context passed to [`LintRule::check_repo`]. Provides
 /// enough information for rules that assert repo-shape invariants
 /// (e.g. "a plugin repo must ship `lua/<name>/health.lua`") without
@@ -119,15 +130,54 @@ pub struct RepoContext<'a> {
 }
 
 impl<'a> RepoContext<'a> {
-    /// The "primary" module of this repo — the module name shared by
-    /// the first `lua/<X>.lua` or `lua/<X>/init.lua` file we find,
-    /// after sorting by relative path. `None` if there's no LuaInit
-    /// entry at all (e.g. a plugin/-only repo).
+    /// The "primary" module of this repo — the module name that other
+    /// rules use to detect first-party requires.
+    ///
+    /// Selection cascade:
+    /// 1. First **nested** `LuaInit` — a `lua/<name>/init.lua` file
+    ///    (3+ path components). Matches the "plugin module with a
+    ///    subdirectory of code" convention every idiomatic plugin
+    ///    follows.
+    /// 2. Module with the **highest file count** across the
+    ///    `LuaInit` / `LuaHealth` / `Lua` roles. Handles
+    ///    distro-shaped repos (yoda.nvim) that carry many
+    ///    `lua/<primary>/*.lua` files without an `init.lua` entry.
+    /// 3. First top-level `LuaInit` alphabetically — original
+    ///    behavior, preserved so repos with a single `lua/<name>.lua`
+    ///    still work.
+    /// 4. `None` when the repo has no module-scoped files at all
+    ///    (plugin/-only repo).
     pub fn primary_module(&self) -> Option<&str> {
-        self.files.iter().find_map(|f| match &f.role {
-            LuaFileRole::LuaInit { module } => Some(module.as_str()),
+        // Step 1: nested init.lua wins outright.
+        if let Some(m) = self.files.iter().find_map(|f| match &f.role {
+            LuaFileRole::LuaInit { module } if f.relative_path.iter().count() >= 3 => {
+                Some(module.as_str())
+            }
             _ => None,
-        })
+        }) {
+            return Some(m);
+        }
+        // Step 2: pick the module carrying the most files.
+        use std::collections::HashMap;
+        let mut counts: HashMap<&str, usize> = HashMap::new();
+        for f in self.files {
+            if let Some(m) = module_of_role(&f.role) {
+                *counts.entry(m).or_insert(0) += 1;
+            }
+        }
+        if let Some(&max_count) = counts.values().max()
+            && let Some(m) = self.files.iter().find_map(|f| {
+                let m = module_of_role(&f.role)?;
+                if *counts.get(m)? == max_count {
+                    Some(m)
+                } else {
+                    None
+                }
+            })
+        {
+            return Some(m);
+        }
+        None
     }
 
     /// True if any file's role satisfies `pred`. Handy for rules like
@@ -537,5 +587,95 @@ mod tests {
             files: &files,
         };
         assert_eq!(ctx.primary_module(), None);
+    }
+
+    #[test]
+    fn repo_context_primary_module_prefers_nested_over_top_level() {
+        // Distro-shaped repo (yoda.nvim's real layout, minimised):
+        // multiple top-level `lua/*.lua` files plus a nested
+        // `lua/yoda/init.lua`. The primary module is "yoda", not
+        // whichever top-level file happens to sort first.
+        let files = vec![
+            LuaFile {
+                path: PathBuf::from("/x/lua/autocmds.lua"),
+                relative_path: PathBuf::from("lua/autocmds.lua"),
+                role: LuaFileRole::LuaInit {
+                    module: "autocmds".to_string(),
+                },
+            },
+            LuaFile {
+                path: PathBuf::from("/x/lua/options.lua"),
+                relative_path: PathBuf::from("lua/options.lua"),
+                role: LuaFileRole::LuaInit {
+                    module: "options".to_string(),
+                },
+            },
+            LuaFile {
+                path: PathBuf::from("/x/lua/yoda/init.lua"),
+                relative_path: PathBuf::from("lua/yoda/init.lua"),
+                role: LuaFileRole::LuaInit {
+                    module: "yoda".to_string(),
+                },
+            },
+        ];
+        let root = PathBuf::from("/x");
+        let ctx = RepoContext {
+            root: &root,
+            files: &files,
+        };
+        assert_eq!(ctx.primary_module(), Some("yoda"));
+    }
+
+    #[test]
+    fn repo_context_primary_module_falls_back_to_top_level_when_no_nested() {
+        // Single-file plugin: only `lua/foo.lua`. Primary module is
+        // still "foo" — the nested preference only kicks in when a
+        // nested candidate exists.
+        let files = vec![LuaFile {
+            path: PathBuf::from("/x/lua/foo.lua"),
+            relative_path: PathBuf::from("lua/foo.lua"),
+            role: LuaFileRole::LuaInit {
+                module: "foo".to_string(),
+            },
+        }];
+        let root = PathBuf::from("/x");
+        let ctx = RepoContext {
+            root: &root,
+            files: &files,
+        };
+        assert_eq!(ctx.primary_module(), Some("foo"));
+    }
+
+    #[test]
+    fn repo_context_primary_module_distro_without_nested_init_uses_file_count() {
+        // Realistic yoda.nvim shape: no `lua/yoda/init.lua`, but many
+        // `lua/yoda/*.lua` files plus a handful of supporting
+        // `lua/<other>.lua` entries. Primary is "yoda" because it has
+        // the most files under it.
+        let mut files = Vec::new();
+        for name in ["autocmds", "lazy-bootstrap", "options"] {
+            files.push(LuaFile {
+                path: PathBuf::from(format!("/x/lua/{name}.lua")),
+                relative_path: PathBuf::from(format!("lua/{name}.lua")),
+                role: LuaFileRole::LuaInit {
+                    module: name.to_string(),
+                },
+            });
+        }
+        for name in ["commands", "config_loader", "environment", "large_file"] {
+            files.push(LuaFile {
+                path: PathBuf::from(format!("/x/lua/yoda/{name}.lua")),
+                relative_path: PathBuf::from(format!("lua/yoda/{name}.lua")),
+                role: LuaFileRole::Lua {
+                    module: "yoda".to_string(),
+                },
+            });
+        }
+        let root = PathBuf::from("/x");
+        let ctx = RepoContext {
+            root: &root,
+            files: &files,
+        };
+        assert_eq!(ctx.primary_module(), Some("yoda"));
     }
 }
