@@ -1,0 +1,46 @@
+[package]
+name = "plug-audit"
+version = "0.1.0"
+edition = "2024"
+description = "Static analyzer for Neovim plugin repos"
+license = "MIT"
+repository = "https://github.com/jedi-knights/plug-audit"
+readme = "README.md"
+keywords = ["neovim", "lua", "linter", "static-analysis", "plugin"]
+categories = ["command-line-utilities", "development-tools"]
+
+[lib]
+name = "plug_audit"
+path = "src/lib.rs"
+
+[[bin]]
+name = "plug-audit"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+tree-sitter = "0.24"
+tree-sitter-lua = "0.2"
+codespan-reporting = "0.11"
+anyhow = "1.0"
+thiserror = "2.0"
+walkdir = "2.5"
+ignore = "0.4"
+
+[dev-dependencies]
+insta = { version = "1.40", features = ["json"] }
+assert_cmd = "2.0"
+predicates = "3.1"
+criterion = "0.5"
+
+[[bench]]
+name = "check"
+harness = false
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

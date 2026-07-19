@@ -1,0 +1,19 @@
+/target
+Cargo.lock.bak
+**/*.rs.bk
+
+# Session tracker — see ~/.claude/CLAUDE.md § Task Tracking
+TODO.md
+
+# Insta pending snapshots
+**/*.snap.new
+.insta/
+
+# Editor state
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
