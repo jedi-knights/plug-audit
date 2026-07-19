@@ -1,0 +1,5 @@
+---
+source: src/domain/finding.rs
+expression: f.to_string()
+---
+`plugin/example.lua:42` — augroup created without `clear = true`. **Why:** re-sourcing the plugin duplicates autocmds without an explicit clear. **Fix:** add `{ clear = true }` as second arg.
