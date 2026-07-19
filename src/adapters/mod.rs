@@ -10,3 +10,4 @@
 
 pub mod parser;
 pub mod repo;
+pub mod rules;
