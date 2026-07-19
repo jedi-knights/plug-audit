@@ -55,11 +55,18 @@ pub trait LintRule: Send + Sync {
 /// Constructed by the CLI driver (see PA-6) — parse the source, look
 /// up the classification, and pass everything by reference so no
 /// per-rule allocation happens for the context itself.
+///
+/// `primary_module` mirrors [`RepoContext::primary_module`] — per-file
+/// rules that need first-party detection (e.g. `deps/pcall-optional-peer`
+/// exempting `require("<self>.util")`) read this field. `Plugin` and
+/// `Test` files whose own role does not carry a module name fall back
+/// to this value.
 pub struct LintContext<'a> {
     pub tree: &'a ParsedTree,
     pub source: &'a str,
     pub role: &'a LuaFileRole,
     pub relative_path: &'a Path,
+    pub primary_module: Option<&'a str>,
 }
 
 impl<'a> LintContext<'a> {
@@ -314,6 +321,7 @@ mod tests {
             source,
             role,
             relative_path,
+            primary_module: None,
         }
     }
 
