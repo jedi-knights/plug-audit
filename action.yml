@@ -1,0 +1,156 @@
+name: jk-plug-audit
+description: Static analysis for Neovim plugin repos — augroup hygiene, <Plug> mappings, healthchecks, setup-optional, optional-peer pcall.
+author: jedi-knights
+
+branding:
+  icon: check-square
+  color: green
+
+inputs:
+  path:
+    description: Directory to scan. Defaults to the workflow's working directory.
+    required: false
+    default: "."
+  strict:
+    description: Fail the job when any Must Fix finding is present ("true" or "false").
+    required: false
+    default: "false"
+  config:
+    description: Path to a `.plug-audit.toml` config file. Auto-discovered from `<path>/.plug-audit.toml` if unset.
+    required: false
+    default: ""
+  version:
+    description: Override the plug-audit version to install (e.g. "v0.1.0"). Defaults to the tag this action was called at, or the latest release for branch/major-tag refs.
+    required: false
+    default: ""
+
+outputs:
+  findings-count:
+    description: Total number of findings across all severities.
+    value: ${{ steps.run.outputs.findings-count }}
+  must-fix-count:
+    description: Number of Must Fix findings.
+    value: ${{ steps.run.outputs.must-fix-count }}
+  should-fix-count:
+    description: Number of Should Fix findings.
+    value: ${{ steps.run.outputs.should-fix-count }}
+  consider-count:
+    description: Number of Consider findings.
+    value: ${{ steps.run.outputs.consider-count }}
+  passed:
+    description: '"true" when strict=false or when no Must Fix findings fired.'
+    value: ${{ steps.run.outputs.passed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Download plug-audit
+      shell: bash
+      env:
+        ACTION_REF: ${{ github.action_ref }}
+        VERSION_OVERRIDE: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+
+        # Map runner OS + architecture to a cargo-dist target-triple.
+        OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+        ARCH="$(uname -m)"
+
+        case "$OS-$ARCH" in
+          linux-x86_64)         TRIPLE="x86_64-unknown-linux-gnu" ;;
+          linux-aarch64|linux-arm64) TRIPLE="aarch64-unknown-linux-gnu" ;;
+          darwin-x86_64)        TRIPLE="x86_64-apple-darwin" ;;
+          darwin-arm64)         TRIPLE="aarch64-apple-darwin" ;;
+          *)
+            echo "::error::Unsupported runner OS/architecture: $OS/$ARCH — Windows runners should install plug-audit directly via the PowerShell installer"
+            exit 1
+            ;;
+        esac
+
+        # Resolve version:
+        # 1. Explicit `version:` input wins.
+        # 2. `github.action_ref` when it looks like a semver tag (v1.2.3).
+        # 3. Fall back to the latest published release.
+        VERSION="${VERSION_OVERRIDE:-}"
+        if [ -z "$VERSION" ] && [[ "${ACTION_REF:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          VERSION="$ACTION_REF"
+        fi
+        if [ -z "$VERSION" ]; then
+          VERSION="$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/jedi-knights/plug-audit/releases/latest \
+            | grep '"tag_name"' | head -1 | cut -d'"' -f4)"
+        fi
+        if [ -z "$VERSION" ]; then
+          echo "::error::Failed to resolve plug-audit version"
+          exit 1
+        fi
+
+        # cargo-dist archive format: plug-audit-<triple>.tar.xz
+        ARCHIVE="plug-audit-${TRIPLE}.tar.xz"
+        URL="https://github.com/jedi-knights/plug-audit/releases/download/${VERSION}/${ARCHIVE}"
+
+        echo "Downloading plug-audit ${VERSION} (${TRIPLE})"
+        # cargo-dist tar.xz archives contain a single file at the root
+        # (the binary), so extracting into $RUNNER_TEMP works cleanly.
+        curl -fsSL "$URL" -o "$RUNNER_TEMP/${ARCHIVE}"
+        tar -xJf "$RUNNER_TEMP/${ARCHIVE}" -C "$RUNNER_TEMP"
+        chmod +x "$RUNNER_TEMP/plug-audit"
+        echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+    - name: Run plug-audit
+      id: run
+      shell: bash
+      env:
+        PA_PATH: ${{ inputs.path }}
+        PA_STRICT: ${{ inputs.strict }}
+        PA_CONFIG: ${{ inputs.config }}
+      run: |
+        set -euo pipefail
+
+        # Assemble args. Config is optional; strict is a flag.
+        ARGS=("check" "$PA_PATH" "--format=json")
+        if [ -n "$PA_CONFIG" ]; then
+          ARGS+=("--config" "$PA_CONFIG")
+        fi
+
+        # Capture JSON output. Force exit-code neutralization via `|| true`
+        # so we can parse the output regardless of --strict; the `passed`
+        # decision is remade at the bottom of this step.
+        OUTPUT_FILE="$RUNNER_TEMP/plug-audit.json"
+        set +e
+        plug-audit "${ARGS[@]}" > "$OUTPUT_FILE"
+        RC=$?
+        set -e
+
+        # RC=1 means tool error (discovery / parser failure). RC=0 or 2
+        # both mean "tool ran to completion, findings maybe present."
+        # Only RC=1 is a hard fail we should not paper over.
+        if [ "$RC" -eq 1 ]; then
+          echo "::error::plug-audit exited with tool error (exit 1)"
+          cat "$OUTPUT_FILE" >&2 || true
+          exit 1
+        fi
+
+        TOTAL="$(jq -r '.summary.total' "$OUTPUT_FILE")"
+        MUST_FIX="$(jq -r '.summary.must_fix' "$OUTPUT_FILE")"
+        SHOULD_FIX="$(jq -r '.summary.should_fix' "$OUTPUT_FILE")"
+        CONSIDER="$(jq -r '.summary.consider' "$OUTPUT_FILE")"
+
+        echo "findings-count=$TOTAL"       >> "$GITHUB_OUTPUT"
+        echo "must-fix-count=$MUST_FIX"    >> "$GITHUB_OUTPUT"
+        echo "should-fix-count=$SHOULD_FIX" >> "$GITHUB_OUTPUT"
+        echo "consider-count=$CONSIDER"    >> "$GITHUB_OUTPUT"
+
+        # Human-friendly summary in the step log.
+        echo "plug-audit: ${TOTAL} finding(s) — ${MUST_FIX} Must Fix, ${SHOULD_FIX} Should Fix, ${CONSIDER} Consider."
+        jq -r '.findings[] | "  [\(.severity)] \(.location.file):\(.location.line) \(.rule) — \(.message)"' "$OUTPUT_FILE"
+
+        # Pass/fail decision. `passed` output is stable regardless of
+        # whether we exit non-zero at the end.
+        if [ "$PA_STRICT" = "true" ] && [ "$MUST_FIX" -gt 0 ]; then
+          echo "passed=false" >> "$GITHUB_OUTPUT"
+          echo "::error::strict mode: $MUST_FIX Must Fix finding(s) present"
+          exit 2
+        fi
+        echo "passed=true" >> "$GITHUB_OUTPUT"
