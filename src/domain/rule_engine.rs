@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use tree_sitter::Node;
 
 use crate::adapters::parser::ParsedTree;
-use crate::adapters::repo::LuaFileRole;
+use crate::adapters::repo::{LuaFile, LuaFileRole};
 use crate::domain::finding::{ByteSpan, Finding, Location};
 use crate::domain::rule::{FixGuidance, RuleId};
 use crate::domain::severity::Severity;
@@ -35,8 +35,19 @@ pub trait LintRule: Send + Sync {
 
     /// Run the rule against a single file's context and return every
     /// violation. May return an empty `Vec`; must never panic on
-    /// well-formed input.
-    fn check(&self, ctx: &LintContext<'_>) -> Vec<Finding>;
+    /// well-formed input. Default no-op so repo-level rules can skip.
+    fn check(&self, _ctx: &LintContext<'_>) -> Vec<Finding> {
+        Vec::new()
+    }
+
+    /// Run the rule against the whole-repo context after all files
+    /// have been walked. Fires exactly once per repo — used for
+    /// presence/absence rules like `nvim/health-check` that can't be
+    /// decided from a single file. Default no-op so per-file rules
+    /// can skip.
+    fn check_repo(&self, _ctx: &RepoContext<'_>) -> Vec<Finding> {
+        Vec::new()
+    }
 }
 
 /// Everything a rule needs to inspect one file.
@@ -91,6 +102,66 @@ impl<'a> LintContext<'a> {
     }
 }
 
+/// Whole-repo context passed to [`LintRule::check_repo`]. Provides
+/// enough information for rules that assert repo-shape invariants
+/// (e.g. "a plugin repo must ship `lua/<name>/health.lua`") without
+/// needing to open the filesystem again.
+pub struct RepoContext<'a> {
+    pub root: &'a Path,
+    pub files: &'a [LuaFile],
+}
+
+impl<'a> RepoContext<'a> {
+    /// The "primary" module of this repo — the module name shared by
+    /// the first `lua/<X>.lua` or `lua/<X>/init.lua` file we find,
+    /// after sorting by relative path. `None` if there's no LuaInit
+    /// entry at all (e.g. a plugin/-only repo).
+    pub fn primary_module(&self) -> Option<&str> {
+        self.files.iter().find_map(|f| match &f.role {
+            LuaFileRole::LuaInit { module } => Some(module.as_str()),
+            _ => None,
+        })
+    }
+
+    /// True if any file's role satisfies `pred`. Handy for rules like
+    /// "this repo has plugin/ files, so it must also ship a healthcheck".
+    pub fn any_role<F: Fn(&LuaFileRole) -> bool>(&self, pred: F) -> bool {
+        self.files.iter().any(|f| pred(&f.role))
+    }
+
+    /// Iterate every LuaFile — for rules that scan the discovery
+    /// output directly.
+    pub fn files(&self) -> &[LuaFile] {
+        self.files
+    }
+
+    /// Build a Finding anchored at a specific file (line 1, col 1).
+    /// Used for repo-level findings that don't have a natural node
+    /// anchor — the file we point at is the actionable location for
+    /// the fix, not the file that "caused" the finding.
+    pub fn finding_at_file(
+        &self,
+        rule: &dyn LintRule,
+        at: impl Into<PathBuf>,
+        message: impl Into<String>,
+        why: impl Into<String>,
+    ) -> FindingBuilder {
+        FindingBuilder {
+            rule_id: rule.id().clone(),
+            severity: rule.severity(),
+            location: Location {
+                file: at.into(),
+                line: 1,
+                column: 1,
+                byte_span: ByteSpan::new(0, 0),
+            },
+            message: message.into(),
+            why: why.into(),
+            fix: None,
+        }
+    }
+}
+
 /// Fluent Finding constructor. Owned rather than borrowing from the
 /// context so it can be stored and returned without lifetime drama.
 pub struct FindingBuilder {
@@ -139,6 +210,16 @@ impl RuleEngine {
         let mut findings = Vec::new();
         for rule in &self.rules {
             findings.extend(rule.check(ctx));
+        }
+        findings
+    }
+
+    /// Run every registered rule against the whole-repo `ctx`. Called
+    /// once after all per-file walks complete.
+    pub fn check_repo(&self, ctx: &RepoContext<'_>) -> Vec<Finding> {
+        let mut findings = Vec::new();
+        for rule in &self.rules {
+            findings.extend(rule.check_repo(ctx));
         }
         findings
     }
@@ -323,5 +404,130 @@ mod tests {
         let rule = AlwaysFire::new();
         let finding = ctx.finding(&rule, tree.root_node(), "m", "w").build();
         assert!(finding.fix.is_none());
+    }
+
+    // Test rule that fires once from check_repo.
+    struct RepoAlwaysFire {
+        id: RuleId,
+        fix: FixGuidance,
+    }
+
+    impl RepoAlwaysFire {
+        fn new() -> Self {
+            Self {
+                id: RuleId::parse("nvim/health-check").unwrap(),
+                fix: FixGuidance::Manual {
+                    description: "test".to_string(),
+                },
+            }
+        }
+    }
+
+    impl LintRule for RepoAlwaysFire {
+        fn id(&self) -> &RuleId {
+            &self.id
+        }
+        fn severity(&self) -> Severity {
+            Severity::MustFix
+        }
+        fn description(&self) -> &str {
+            "test"
+        }
+        fn fix_guidance(&self) -> &FixGuidance {
+            &self.fix
+        }
+        fn check_repo(&self, ctx: &RepoContext<'_>) -> Vec<Finding> {
+            let target = ctx
+                .primary_module()
+                .map(|m| PathBuf::from(format!("lua/{m}/init.lua")))
+                .unwrap_or_else(|| PathBuf::from("."));
+            vec![
+                ctx.finding_at_file(self, target, "repo-level fire", "w")
+                    .fix("f")
+                    .build(),
+            ]
+        }
+    }
+
+    #[test]
+    fn engine_runs_check_repo_once() {
+        let files = vec![
+            LuaFile {
+                path: PathBuf::from("/tmp/x/lua/foo/init.lua"),
+                relative_path: PathBuf::from("lua/foo/init.lua"),
+                role: LuaFileRole::LuaInit {
+                    module: "foo".to_string(),
+                },
+            },
+            LuaFile {
+                path: PathBuf::from("/tmp/x/plugin/foo.lua"),
+                relative_path: PathBuf::from("plugin/foo.lua"),
+                role: LuaFileRole::Plugin,
+            },
+        ];
+        let engine = RuleEngine::new(vec![Box::new(RepoAlwaysFire::new())]);
+        let root = PathBuf::from("/tmp/x");
+        let ctx = RepoContext {
+            root: &root,
+            files: &files,
+        };
+        let findings = engine.check_repo(&ctx);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].location.file, PathBuf::from("lua/foo/init.lua"));
+        assert_eq!(findings[0].location.line, 1);
+        assert_eq!(findings[0].location.column, 1);
+    }
+
+    #[test]
+    fn per_file_rule_check_repo_defaults_to_empty() {
+        let files: Vec<LuaFile> = Vec::new();
+        let engine = RuleEngine::new(vec![Box::new(AlwaysFire::new())]);
+        let root = PathBuf::from("/tmp/empty");
+        let ctx = RepoContext {
+            root: &root,
+            files: &files,
+        };
+        assert!(engine.check_repo(&ctx).is_empty());
+    }
+
+    #[test]
+    fn repo_context_primary_module_finds_first_lua_init() {
+        let files = vec![
+            LuaFile {
+                path: PathBuf::from("/x/lua/foo/config.lua"),
+                relative_path: PathBuf::from("lua/foo/config.lua"),
+                role: LuaFileRole::Lua {
+                    module: "foo".to_string(),
+                },
+            },
+            LuaFile {
+                path: PathBuf::from("/x/lua/foo/init.lua"),
+                relative_path: PathBuf::from("lua/foo/init.lua"),
+                role: LuaFileRole::LuaInit {
+                    module: "foo".to_string(),
+                },
+            },
+        ];
+        let root = PathBuf::from("/x");
+        let ctx = RepoContext {
+            root: &root,
+            files: &files,
+        };
+        assert_eq!(ctx.primary_module(), Some("foo"));
+    }
+
+    #[test]
+    fn repo_context_primary_module_none_when_no_init() {
+        let files = vec![LuaFile {
+            path: PathBuf::from("/x/plugin/foo.lua"),
+            relative_path: PathBuf::from("plugin/foo.lua"),
+            role: LuaFileRole::Plugin,
+        }];
+        let root = PathBuf::from("/x");
+        let ctx = RepoContext {
+            root: &root,
+            files: &files,
+        };
+        assert_eq!(ctx.primary_module(), None);
     }
 }

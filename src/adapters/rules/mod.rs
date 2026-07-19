@@ -5,18 +5,16 @@
 //! preserves that order in its findings; the reporter is what re-groups
 //! output by severity per `rules/findings-format.md`.
 //!
-//! Populated in PA-5 (five rules for v0.1.0). PA-4 ships the empty
-//! registry so the wiring is testable and the CLI can list rules from
-//! day one.
-//!
 //! [engine]: crate::domain::rule_engine::RuleEngine
+
+pub mod nvim;
 
 use crate::domain::LintRule;
 
-/// Every rule the tool ships with. Returns an empty `Vec` until PA-5
-/// lands the first rule impls.
+/// Every rule the tool ships with. Registration order is stable —
+/// downstream tooling that snapshots rule output relies on it.
 pub fn built_in_rules() -> Vec<Box<dyn LintRule>> {
-    Vec::new()
+    vec![Box::new(nvim::AugroupClear)]
 }
 
 #[cfg(test)]
@@ -25,16 +23,27 @@ mod tests {
     use crate::domain::RuleEngine;
 
     #[test]
-    fn scaffold_returns_empty_registry() {
-        // Locks the "empty until PA-5" contract — the CLI wiring in PA-6
-        // must handle a zero-rule engine cleanly, and this test breaks
-        // (loudly, with a review prompt) the moment PA-5 lands.
-        assert!(built_in_rules().is_empty());
+    fn registry_contains_expected_rules() {
+        let ids: Vec<String> = built_in_rules()
+            .iter()
+            .map(|r| r.id().as_str().to_string())
+            .collect();
+        insta::assert_json_snapshot!("built_in_rules_registry", ids);
     }
 
     #[test]
-    fn empty_registry_composes_with_engine() {
+    fn registry_composes_with_engine() {
         let engine = RuleEngine::new(built_in_rules());
-        assert_eq!(engine.rules().len(), 0);
+        assert!(!engine.rules().is_empty());
+    }
+
+    #[test]
+    fn every_rule_has_a_unique_id() {
+        let rules = built_in_rules();
+        let mut seen = std::collections::HashSet::new();
+        for r in &rules {
+            let id = r.id().as_str().to_string();
+            assert!(seen.insert(id.clone()), "duplicate rule ID: {id}");
+        }
     }
 }

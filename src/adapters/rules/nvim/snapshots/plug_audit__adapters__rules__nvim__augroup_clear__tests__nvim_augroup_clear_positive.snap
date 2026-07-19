@@ -1,0 +1,30 @@
+---
+source: src/adapters/rules/nvim/augroup_clear.rs
+expression: stable
+---
+[
+  {
+    "line": 3,
+    "message": "vim.api.nvim_create_augroup called without `{ clear = true }`",
+    "rule": "nvim/augroup-clear",
+    "severity": "should-fix"
+  },
+  {
+    "line": 4,
+    "message": "vim.api.nvim_create_augroup called without `{ clear = true }`",
+    "rule": "nvim/augroup-clear",
+    "severity": "should-fix"
+  },
+  {
+    "line": 5,
+    "message": "vim.api.nvim_create_augroup called without `{ clear = true }`",
+    "rule": "nvim/augroup-clear",
+    "severity": "should-fix"
+  },
+  {
+    "line": 6,
+    "message": "vim.api.nvim_create_augroup called without `{ clear = true }`",
+    "rule": "nvim/augroup-clear",
+    "severity": "should-fix"
+  }
+]

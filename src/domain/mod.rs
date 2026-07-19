@@ -14,5 +14,7 @@ pub mod severity;
 
 pub use finding::{ByteSpan, Finding, Location};
 pub use rule::{FixGuidance, Rule, RuleId, RuleIdError};
-pub use rule_engine::{FileContext, FindingBuilder, LintContext, LintRule, RuleEngine};
+pub use rule_engine::{
+    FileContext, FindingBuilder, LintContext, LintRule, RepoContext, RuleEngine,
+};
 pub use severity::Severity;
