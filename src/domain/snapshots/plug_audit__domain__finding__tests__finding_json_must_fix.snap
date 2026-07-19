@@ -1,0 +1,20 @@
+---
+source: src/domain/finding.rs
+expression: f
+---
+{
+  "rule": "nvim/augroup-clear",
+  "severity": "must-fix",
+  "location": {
+    "file": "plugin/example.lua",
+    "line": 42,
+    "column": 7,
+    "byte_span": {
+      "start": 1024,
+      "end": 1067
+    }
+  },
+  "message": "augroup created without `clear = true`",
+  "why": "re-sourcing the plugin duplicates autocmds without an explicit clear",
+  "fix": "scaffold a stub health.lua"
+}
