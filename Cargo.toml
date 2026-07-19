@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Static analyzer for Neovim plugin repos"
 license = "MIT"
+homepage = "https://github.com/jedi-knights/plug-audit"
 repository = "https://github.com/jedi-knights/plug-audit"
 readme = "README.md"
 keywords = ["neovim", "lua", "linter", "static-analysis", "plugin"]
