@@ -1,0 +1,89 @@
+name: badge
+
+# Triggered after the ci workflow completes on main. Running in a
+# separate workflow (not a job inside ci.yml) mirrors the jedi-knights
+# suite convention and avoids a push race — if the badge push shared a
+# CI run with any other main-branch commit workflow, the two `git push`
+# calls could reject each other with "fetch first."
+#
+# Also triggers on `workflow_dispatch` for manual re-runs.
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# Never cancel a badge run mid-flight — a partial run would leave the
+# README out of sync with the actual coverage number until the next
+# push nudges it.
+concurrency:
+  group: badge
+  cancel-in-progress: false
+
+# The badge job pushes an updated README back to main; that push needs
+# an explicit `contents: write` at the job level since the
+# workflow-level default has no such grant.
+permissions:
+  contents: read
+
+jobs:
+  badge:
+    name: coverage badge
+    # Guard both trigger paths:
+    # - workflow_dispatch: only allow if targeting main (feature-branch
+    #   dispatches must not race to modify README).
+    # - workflow_run: only when the upstream ci run succeeded — no
+    #   point republishing a badge for a broken build.
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+      || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Explicit `GH_TOKEN` (org-level PAT with `contents: write`)
+      # bypasses the "changes must be made through a PR" ruleset on
+      # main. The default `GITHUB_TOKEN` cannot bypass the ruleset —
+      # a push attempt returns GH013.
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          ref: main
+
+      - name: install toolchain
+        run: rustup show
+
+      - name: install llvm-tools-preview
+        run: rustup component add llvm-tools-preview
+
+      - name: cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: generate lcov coverage
+        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+
+      # coverage-badge auto-detects lcov.info at repo root. It rewrites
+      # the shields.io badge inline; the following step commits and
+      # pushes if the file actually changed.
+      - name: update coverage badge
+        uses: jedi-knights/coverage-badge@v0
+
+      # `[skip ci]` in the commit message is load-bearing — without it,
+      # this commit would trigger ci → workflow_run → badge → commit,
+      # ad infinitum.
+      - name: commit badge if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet README.md; then
+            git add README.md
+            git commit -m "chore: update coverage badge [skip ci]"
+            git push
+          fi
