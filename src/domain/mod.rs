@@ -12,6 +12,7 @@ pub mod finding;
 pub mod rule;
 pub mod rule_engine;
 pub mod severity;
+pub mod suppressions;
 
 pub use config::{Config, ConfigError};
 pub use finding::{ByteSpan, Finding, Location};
@@ -20,3 +21,4 @@ pub use rule_engine::{
     FileContext, FindingBuilder, LintContext, LintRule, RepoContext, RuleEngine,
 };
 pub use severity::Severity;
+pub use suppressions::Suppressions;
