@@ -1,11 +1,20 @@
+<div align="center">
+
 # plug-audit
 
-[![ci](https://github.com/jedi-knights/plug-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/jedi-knights/plug-audit/actions/workflows/ci.yml)
-![Coverage](https://img.shields.io/badge/Coverage-95.3%25-brightgreen)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![rust: 1.95](https://img.shields.io/badge/rust-1.95-orange.svg)](rust-toolchain.toml)
+**Static analyzer for Neovim plugin repos.**
 
-Static analyzer for Neovim plugin repos. Reports what a well-behaved plugin needs — augroup hygiene, `<Plug>`-first keymaps, setup-optional command surface, `pcall`-guarded optional peers, and a proper `:checkhealth` module — as file:line findings you can fix or grep-suppress.
+[![CI](https://github.com/jedi-knights/plug-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/jedi-knights/plug-audit/actions/workflows/ci.yml)
+[![Release](https://github.com/jedi-knights/plug-audit/actions/workflows/release.yml/badge.svg)](https://github.com/jedi-knights/plug-audit/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Badge](https://github.com/jedi-knights/plug-audit/actions/workflows/badge.yml/badge.svg)](https://github.com/jedi-knights/plug-audit/actions/workflows/badge.yml)
+![Coverage](https://img.shields.io/badge/Coverage-95.3%25-brightgreen)
+
+[Install](#install) · [Quick start](#quick-start) · [Rules](#rules) · [Configuration](#configuration) · [Suppressions](#inline-suppressions) · [Development](#development) · [Contributing](#contributing)
+
+</div>
+
+Reports what a well-behaved plugin needs — augroup hygiene, `<Plug>`-first keymaps, setup-optional command surface, `pcall`-guarded optional peers, and a proper `:checkhealth` module — as file:line findings you can fix or grep-suppress.
 
 > **Preview release.** The v0.1.0 rule set is complete and the CLI is usable end-to-end. Public API and rule IDs are frozen for v0.1.0 but may evolve after v0.2.0. See [Status](#status) for details.
 
