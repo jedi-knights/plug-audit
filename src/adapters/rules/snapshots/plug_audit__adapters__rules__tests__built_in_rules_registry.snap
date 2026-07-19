@@ -6,5 +6,6 @@ expression: ids
   "nvim/augroup-clear",
   "nvim/health-check",
   "nvim/plug-mapping",
+  "nvim/setup-optional",
   "deps/optional-peer"
 ]
