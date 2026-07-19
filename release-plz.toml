@@ -1,0 +1,24 @@
+# release-plz configuration.
+#
+# release-plz watches Conventional Commits on main, opens a rolling
+# release PR that bumps the Cargo.toml version and updates CHANGELOG.md,
+# and (after that PR merges) creates a git tag + GitHub Release.
+#
+# Publishing to crates.io is deliberately off during the v0.1.0-preview
+# window — flip `publish = true` once the API is stable enough to
+# guarantee semver compatibility for external consumers.
+
+[workspace]
+# Never `cargo publish` — v0.1.0-preview is not on crates.io yet.
+publish = false
+
+# Create a git tag on release so cargo-dist (added separately) can pick
+# it up and attach cross-platform binaries.
+git_tag_enable = true
+
+# Create a GitHub Release from the tag with the changelog body.
+git_release_enable = true
+
+# Newest-first changelog reads more naturally in the release body.
+[changelog]
+sort_commits = "newest"
