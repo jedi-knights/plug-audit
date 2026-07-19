@@ -121,7 +121,10 @@ jobs:
   # forks cannot receive the `contents: write` permission this needs.
   badge:
     name: coverage badge
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Runs on merges to main AND on manual re-runs (workflow_dispatch)
+    # against the main ref. Feature-branch PRs never enter this gate,
+    # so they cannot race to rewrite README.
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     needs: [lint, test, coverage]
     runs-on: ubuntu-latest
     permissions:
