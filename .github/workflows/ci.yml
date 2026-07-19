@@ -25,7 +25,7 @@ jobs:
     name: rustfmt + clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # `rust-toolchain.toml` in the repo pins the exact channel;
       # `rustup show` reads the file and installs the pinned toolchain.
@@ -47,7 +47,7 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: install toolchain
         run: rustup show
@@ -62,7 +62,7 @@ jobs:
     name: line coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: install toolchain
         run: rustup show
