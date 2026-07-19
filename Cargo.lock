@@ -619,6 +619,7 @@ dependencies = [
  "predicates",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
  "toml",
  "tree-sitter",

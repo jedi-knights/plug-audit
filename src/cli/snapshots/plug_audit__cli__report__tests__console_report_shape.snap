@@ -1,0 +1,16 @@
+---
+source: src/cli/report.rs
+expression: out
+---
+## Findings
+
+### Must Fix
+
+- `plugin/x.lua:1` — must one. **Why:** reason. **Fix:** fix.  [nvim/health-check]
+
+### Should Fix
+
+- `plugin/x.lua:5` — should one. **Why:** reason. **Fix:** fix.  [nvim/plug-mapping]
+- `plugin/x.lua:6` — should two. **Why:** reason. **Fix:** fix.  [nvim/plug-mapping]
+
+3 finding(s) — 1 Must Fix, 2 Should Fix, 0 Consider.
