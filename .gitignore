@@ -9,6 +9,9 @@ TODO.md
 **/*.snap.new
 .insta/
 
+# Coverage output (emitted by CI's badge job)
+lcov.info
+
 # Editor state
 .idea/
 .vscode/
