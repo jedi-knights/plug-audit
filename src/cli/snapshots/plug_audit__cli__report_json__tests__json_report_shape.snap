@@ -1,0 +1,62 @@
+---
+source: src/cli/report_json.rs
+expression: v
+---
+{
+  "findings": [
+    {
+      "fix": "fix",
+      "location": {
+        "byte_span": {
+          "end": 20,
+          "start": 10
+        },
+        "column": 1,
+        "file": "plugin/x.lua",
+        "line": 1
+      },
+      "message": "message",
+      "rule": "nvim/health-check",
+      "severity": "must-fix",
+      "why": "why"
+    },
+    {
+      "fix": "fix",
+      "location": {
+        "byte_span": {
+          "end": 20,
+          "start": 10
+        },
+        "column": 1,
+        "file": "plugin/x.lua",
+        "line": 5
+      },
+      "message": "message",
+      "rule": "nvim/plug-mapping",
+      "severity": "should-fix",
+      "why": "why"
+    },
+    {
+      "location": {
+        "byte_span": {
+          "end": 20,
+          "start": 10
+        },
+        "column": 1,
+        "file": "plugin/x.lua",
+        "line": 10
+      },
+      "message": "message",
+      "rule": "nvim/plug-mapping",
+      "severity": "consider",
+      "why": "why"
+    }
+  ],
+  "summary": {
+    "consider": 1,
+    "must_fix": 1,
+    "should_fix": 1,
+    "total": 3
+  },
+  "version": "REDACTED"
+}

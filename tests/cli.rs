@@ -75,3 +75,48 @@ fn help_prints_check_subcommand() {
         .success()
         .stdout(predicate::str::contains("check"));
 }
+
+#[test]
+fn json_format_produces_parseable_output() {
+    let output = bin()
+        .arg("check")
+        .arg(fixture_path("tests/fixtures/sample-repo"))
+        .arg("--format=json")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8(output).expect("stdout is utf8");
+    let value: serde_json::Value =
+        serde_json::from_str(&stdout).expect("--format=json emits parseable JSON");
+
+    assert!(
+        value["findings"].is_array(),
+        "envelope must include a `findings` array"
+    );
+    assert!(value["summary"]["total"].is_number());
+    assert!(value["summary"]["must_fix"].as_u64().unwrap() >= 1);
+    assert_eq!(
+        value["version"].as_str().unwrap(),
+        env!("CARGO_PKG_VERSION")
+    );
+}
+
+#[test]
+fn json_format_empty_repo_still_valid() {
+    let tmp = tempfile::tempdir().expect("mktemp");
+    let output = bin()
+        .arg("check")
+        .arg(tmp.path())
+        .arg("--format=json")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8(output).expect("stdout is utf8");
+    let value: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    assert_eq!(value["summary"]["total"], 0);
+    assert_eq!(value["findings"].as_array().unwrap().len(), 0);
+}

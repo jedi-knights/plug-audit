@@ -19,7 +19,7 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use clap::Args;
+use clap::{Args, ValueEnum};
 
 use crate::adapters::parser::LuaParser;
 use crate::adapters::repo::{LuaFile, discover};
@@ -27,13 +27,29 @@ use crate::adapters::rules::built_in_rules;
 use crate::domain::rule_engine::{LintContext, RepoContext, RuleEngine};
 use crate::domain::{Finding, Severity};
 
-use super::report;
+use super::{report, report_json};
+
+/// Output format for the report. Console is meant for humans; JSON is
+/// the wire shape CI and adjacent tooling read.
+#[derive(Copy, Clone, Debug, ValueEnum, Default)]
+#[value(rename_all = "lowercase")]
+pub enum Format {
+    #[default]
+    Console,
+    Json,
+}
 
 #[derive(Args, Debug)]
 pub struct CheckArgs {
     /// Directory to scan. Defaults to the current directory.
     #[arg(default_value = ".")]
     pub path: PathBuf,
+
+    /// Output format. `console` is grouped by severity for humans;
+    /// `json` is a stable wire shape with a `findings` array and a
+    /// `summary` object for machine consumers.
+    #[arg(long, value_enum, default_value_t = Format::Console)]
+    pub format: Format,
 
     /// Exit with code 2 if any Must Fix finding is present. Reserve
     /// for CI — during local iteration, plain exit 0 lets you rerun
@@ -90,7 +106,11 @@ pub fn run(args: &CheckArgs) -> ExitCode {
             .then_with(|| a.location.line.cmp(&b.location.line))
     });
 
-    if let Err(err) = report::write_console(&mut std::io::stdout(), &findings) {
+    let write_result = match args.format {
+        Format::Console => report::write_console(&mut std::io::stdout(), &findings),
+        Format::Json => report_json::write_json(&mut std::io::stdout(), &findings),
+    };
+    if let Err(err) = write_result {
         eprintln!("plug-audit: report write failed: {err}");
         return ExitCode::from(1);
     }
