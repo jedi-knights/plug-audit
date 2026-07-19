@@ -76,6 +76,16 @@ For CI:
 plug-audit check . --strict --format=json
 ```
 
+Or via the composite GitHub Action — same download-plus-run pattern the other jedi-knights tools use, no binary install step required in your workflow:
+
+```yaml
+- uses: jedi-knights/plug-audit@v0
+  with:
+    strict: "true"
+```
+
+Exposes `findings-count`, `must-fix-count`, `should-fix-count`, `consider-count`, and `passed` outputs for downstream steps.
+
 `--strict` returns exit code 2 when any **Must Fix** finding is present, which most CI parsers already understand as failure. `--format=json` writes a stable envelope with a `findings` array and a `summary` object; both are documented under [CLI reference](#cli-reference).
 
 ## Rules
