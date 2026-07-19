@@ -12,6 +12,13 @@
 # Never `cargo publish` — v0.1.0-preview is not on crates.io yet.
 publish = false
 
+# Skip API-diff checks against crates.io. Without this, release-plz
+# emits `WARN Package plug-audit@*.*.* not found` and refuses to
+# compute a version bump because it cannot resolve a baseline. With
+# semver_check off, release-plz falls back to conventional-commits
+# analysis and git tags for the version cascade — the mode we want.
+semver_check = false
+
 # Create a git tag on release so cargo-dist (added separately) can pick
 # it up and attach cross-platform binaries.
 git_tag_enable = true
