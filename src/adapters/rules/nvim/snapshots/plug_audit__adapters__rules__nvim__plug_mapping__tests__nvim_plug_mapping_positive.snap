@@ -1,0 +1,30 @@
+---
+source: src/adapters/rules/nvim/plug_mapping.rs
+expression: stable
+---
+[
+  {
+    "line": 5,
+    "message": "`vim.keymap.set` in `plugin/` binds default `<leader>ff` instead of a `<Plug>` indirection",
+    "rule": "nvim/plug-mapping",
+    "severity": "should-fix"
+  },
+  {
+    "line": 6,
+    "message": "`vim.keymap.set` in `plugin/` binds default `<Leader>gg` instead of a `<Plug>` indirection",
+    "rule": "nvim/plug-mapping",
+    "severity": "should-fix"
+  },
+  {
+    "line": 7,
+    "message": "`vim.keymap.set` in `plugin/` binds default `<localleader>xx` instead of a `<Plug>` indirection",
+    "rule": "nvim/plug-mapping",
+    "severity": "should-fix"
+  },
+  {
+    "line": 8,
+    "message": "`vim.keymap.set` in `plugin/` binds default `<LocalLeader>yy` instead of a `<Plug>` indirection",
+    "rule": "nvim/plug-mapping",
+    "severity": "should-fix"
+  }
+]
